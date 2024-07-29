@@ -1,0 +1,38 @@
+{
+  "scripts": {
+    "install": "npx husky init",
+    "compile": "npx hardhat compile --force",
+    "coverage": "npx hardhat coverage",
+    "test": "npx hardhat test",
+    "test-all": "npm run deploy-dev && npm run test",
+    "private-network": "npx hardhat node",
+    "private-network-fork": "npx hardhat node --fork https://mainnet.infura.io/v3/$(grep INFURA_KEY .env | cut -d '\"' -f2)",
+    "deploy-dev": "npx hardhat run deploy/deploy.js --network localhost",
+    "deploy-sepolia": "CONFIRMATIONS=5 VERIFY=true npx hardhat run deploy/deploy.js --network sepolia",
+    "deploy-chapel": "CONFIRMATIONS=1 VERIFY=true npx hardhat run deploy/deploy.js --network chapel",
+    "deploy-eth-mainnet": "CONFIRMATIONS=5 VERIFY=true npx hardhat run deploy/deploy.js --network eth_mainnet",
+    "deploy-bsc-mainnet": "CONFIRMATIONS=2 VERIFY=true npx hardhat run deploy/deploy.js --network bsc_mainnet",
+    "generate-types": "TYPECHAIN_FORCE=true npx hardhat typechain",
+    "lint-fix": "npm run lint-sol-fix && npm run lint-js-fix && npm run lint-json-fix",
+    "lint-json-fix": "prettier --write \"./[a-zA-Z0-9.]+(?!-lock).json\"",
+    "lint-js-fix": "prettier --write \"./**/*.js\"",
+    "lint-sol-fix": "prettier --write \"contracts/**/*.sol\"",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@nomiclabs/hardhat-etherscan": "^3.1.8",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
+    "@truffle/deployer": "^3.3.27",
+    "@truffle/reporters": "^2.0.8",
+    "@typechain/hardhat": "^9.1.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.6",
+    "hardhat-contract-sizer": "^2.10.0",
+    "hardhat-gas-reporter": "^2.2.0",
+    "solidity-coverage": "^0.8.12",
+    "truffle-assertions": "^0.9.2"
+  }
+}

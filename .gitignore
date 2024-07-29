@@ -1,0 +1,10 @@
+.env
+.DS_Store
+.idea
+.husky
+node_modules
+cache
+artifacts
+coverage
+coverage.json
+generated-types
