@@ -1,16 +1,13 @@
 node_modules
 .env
 .DS_Store
-.husky
-.idea
-.gitkeep
+package-lock.json
 
 # Hardhat files
 cache
 artifacts
 coverage.json
 coverage
-abi
 
 # Typechain generated files
 generated-types

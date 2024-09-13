@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import {ERC1155Holder} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+import {IERC1155Handler} from "../interfaces/handlers/IERC1155Handler.sol";
+import {IERC1155MintableBurnable} from "../interfaces/IERC1155MintableBurnable.sol";
 
-import "../interfaces/handlers/IERC1155Handler.sol";
-import "../interfaces/IERC1155MintableBurnable.sol";
+import "../errors/Errors.sol";
 
 contract ERC1155Handler is IERC1155Handler, ERC1155Holder {
     function depositERC1155(
@@ -15,8 +16,8 @@ contract ERC1155Handler is IERC1155Handler, ERC1155Holder {
         string calldata network_,
         bool isMintable_
     ) external override {
-        require(token_ != address(0), "ERC1155Handler: zero token");
-        require(amount_ > 0, "ERC1155Handler: amount is zero");
+        if (token_ == address(0)) revert ZeroToken();
+        if (amount_ == 0) revert ZeroAmount();
 
         IERC1155MintableBurnable erc1155 = IERC1155MintableBurnable(token_);
 
@@ -37,9 +38,9 @@ contract ERC1155Handler is IERC1155Handler, ERC1155Holder {
         string calldata tokenURI_,
         bool isMintable_
     ) internal {
-        require(token_ != address(0), "ERC1155Handler: zero token");
-        require(to_ != address(0), "ERC1155Handler: zero receiver");
-        require(amount_ > 0, "ERC1155Handler: amount is zero");
+        if (token_ == address(0)) revert ZeroToken();
+        if (to_ == address(0)) revert ZeroReceiver();
+        if (amount_ == 0) revert ZeroAmount();
 
         IERC1155MintableBurnable erc1155 = IERC1155MintableBurnable(token_);
 
@@ -63,17 +64,17 @@ contract ERC1155Handler is IERC1155Handler, ERC1155Holder {
     ) public pure returns (bytes32) {
         return
             keccak256(
-            abi.encodePacked(
-                token_,
-                tokenId_,
-                amount_,
-                to_,
-                txHash_,
-                txNonce_,
-                chainId_,
-                tokenURI_,
-                isMintable_
-            )
-        );
+                abi.encodePacked(
+                    token_,
+                    tokenId_,
+                    amount_,
+                    to_,
+                    txHash_,
+                    txNonce_,
+                    chainId_,
+                    tokenURI_,
+                    isMintable_
+                )
+            );
     }
 }

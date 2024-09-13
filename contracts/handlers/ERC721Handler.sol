@@ -1,15 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import {IERC721Handler} from "../interfaces/handlers/IERC721Handler.sol";
+import {IERC721MintableBurnable} from "../interfaces/IERC721MintableBurnable.sol";
 
-import "../interfaces/handlers/IERC721Handler.sol";
-import "../interfaces/IERC721MintableBurnable.sol";
+import "../errors/Errors.sol";
 
 abstract contract ERC721Handler is IERC721Handler, ERC721Holder {
-    function depositERC721(address token_, uint256 tokenId_, address to_, string calldata network_, bool isMintable_) external override {
-        require(token_ != address(0), "ERC721Handler: token isn't set");
-        require(to_ != address(0), "ERC721Handler: receiver isn't set");
+    function depositERC721(
+        address token_,
+        uint256 tokenId_,
+        address to_,
+        string calldata network_,
+        bool isMintable_
+    ) external override {
+        if (token_ == address(0)) revert TokenNotSet();
+        if (to_ == address(0)) revert ReceiverNotSet();
 
         IERC721MintableBurnable erc721 = IERC721MintableBurnable(token_);
 
@@ -22,9 +29,15 @@ abstract contract ERC721Handler is IERC721Handler, ERC721Holder {
         emit DepositedERC721(token_, tokenId_, to_, network_, isMintable_);
     }
 
-    function _withdrawERC721(address token_, uint256 tokenId_, address to_, string calldata tokenURI_, bool isMintable_) internal {
-        require(token_ != address(0), "ERC721Handler: token isn't set");
-        require(to_ != address(0), "ERC721Handler: receiver isn't set");
+    function _withdrawERC721(
+        address token_,
+        uint256 tokenId_,
+        address to_,
+        string calldata tokenURI_,
+        bool isMintable_
+    ) internal {
+        if (token_ == address(0)) revert TokenNotSet();
+        if (to_ == address(0)) revert ReceiverNotSet();
 
         IERC721MintableBurnable erc721 = IERC721MintableBurnable(token_);
 
@@ -45,6 +58,18 @@ abstract contract ERC721Handler is IERC721Handler, ERC721Holder {
         string calldata tokenURI_,
         bool isMintable_
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(token_, tokenId_, to_, txHash_, txNonce_, chainId_, tokenURI_, isMintable_));
+        return
+            keccak256(
+                abi.encodePacked(
+                    token_,
+                    tokenId_,
+                    to_,
+                    txHash_,
+                    txNonce_,
+                    chainId_,
+                    tokenURI_,
+                    isMintable_
+                )
+            );
     }
 }

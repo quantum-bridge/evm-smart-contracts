@@ -5,7 +5,7 @@ interface IBridge {
     function withdrawERC20(
         address token_,
         uint256 amount_,
-        address ,
+        address,
         bytes32 txHash_,
         uint256 txNonce_,
         bool isMintable_,
