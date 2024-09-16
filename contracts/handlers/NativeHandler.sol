@@ -31,7 +31,7 @@ abstract contract NativeHandler is INativeHandler {
         bytes32 txHash_,
         uint256 txNonce_,
         uint256 chainId_
-    ) external pure returns (bytes32) {
+    ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(amount_, to_, txHash_, txNonce_, chainId_));
     }
 }

@@ -141,7 +141,7 @@ contract Bridge is
         bytes32 txHash_,
         uint256 txNonce_,
         bytes[] calldata signatures_
-    ) external override {
+    ) external {
         bytes32 signHash_ = getNativeSignHash(
             amount_,
             to_,
@@ -153,7 +153,7 @@ contract Bridge is
         _storeHash(txHash_, txNonce_);
         _verifySignatures(signHash_, signatures_);
 
-        _withdrawNative(amount_, to_);
+        _withdrawNative(to_, amount_);
     }
 
     function _storeHash(bytes32 txHash_, uint256 txNonce_) internal {
