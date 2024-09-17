@@ -9,129 +9,250 @@ describe("Bridge", function () {
   const SECOND_PRIVATE_KEY = "f214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897"
   const secondAccount = "0xBcd4042DE499D14e55001CcbB24a551F3b954096"
   let ownerAddress: string;
-  let amount;
-  let largeAmount;
+  let tokenId;
   let network;
   let isMintable;
-  let txNonce
+  let txNonce;
 
   let Bridge: BaseContract & Omit<BaseContract, keyof BaseContract>;
-  let ERC20Token: Contract;
   let signers: Signer[];
 
-  beforeEach(async function () {
-    // Deploy the Bridge contract and the ERC20 token contract.
-    amount = wei("1000000");
-    largeAmount = wei("1000000000");
-    network = "test-network-1";
-    txNonce = 0;
-    isMintable = false;
+  describe("ERC-20", function () {
+    let ERC20Token: Contract;
+    let amount;
+    let largeAmount;
 
-    // Get the signers from the network.
-    signers = await ethers.getSigners();
-    // Get the owner's address from the first signer.
-    ownerAddress = await signers[0].getAddress();
+    beforeEach(async function () {
+      amount = wei("1000000");
+      largeAmount = wei("1000000000");
+      network = "test-network-1";
+      txNonce = 0;
+      isMintable = false;
 
-    // Deploy the Bridge contract and the ERC20 token contract.
-    const BridgeFactory = await ethers.getContractFactory("Bridge");
-    const bridgeImplementation = await BridgeFactory.deploy();
+      signers = await ethers.getSigners();
+      ownerAddress = await signers[0].getAddress();
 
-    // Deploy the ERC1967Proxy contract and initialize it with the Bridge contract's address.
-    const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
-    const proxy = await ERC1967ProxyFactory.deploy(await bridgeImplementation.getAddress(), "0x");
+      const BridgeFactory = await ethers.getContractFactory("Bridge");
+      const bridgeImplementation = await BridgeFactory.deploy();
 
-    // Attach the Bridge contract to the proxy.
-    Bridge = BridgeFactory.attach(await proxy.getAddress());
+      const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
+      const proxy = await ERC1967ProxyFactory.deploy(await bridgeImplementation.getAddress(), "0x");
 
-    // Deploy the ERC20 token contract.
-    const ERC20TokenFactory = await ethers.getContractFactory("ERC20MintableBurnable");
-    ERC20Token = await ERC20TokenFactory.deploy(signers[0].getAddress(), "Test Token", "TST");
+      Bridge = BridgeFactory.attach(await proxy.getAddress());
 
-    // Initialize the Bridge contract with the owner's address and the second account's address.
-    await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], 1);
+      const ERC20TokenFactory = await ethers.getContractFactory("ERC20MintableBurnable");
+      ERC20Token = await ERC20TokenFactory.deploy(signers[0].getAddress(), "Test Token", "TST");
 
-    // Mint some tokens to the owner.
-    await ERC20Token.mint(ownerAddress, amount);
+      await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], 1); // Assuming 1 as the threshold for testing
 
-    // Approve the Bridge contract to spend the owner's tokens
-    await ERC20Token.connect(signers[0]).approve(Bridge.getAddress(), amount);
+      // Mint some tokens to the deployer
+      await ERC20Token.mint(ownerAddress, amount);
 
-    // Approve the Bridge contract to spend the deployer's tokens
-    await ERC20Token.connect(await signers[0]).approve(await Bridge.getAddress(), amount);
+
+      // Approve the Bridge contract to spend the owner's tokens
+      await ERC20Token.connect(signers[0]).approve(Bridge.getAddress(), amount);
+
+      // Approve the Bridge contract to spend the deployer's tokens
+      await ERC20Token.connect(await signers[0]).approve(await Bridge.getAddress(), amount);
+    });
+
+    it("should deposit and withdraw ERC20 tokens", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+
+      // Check the Bridge contract's token balance after deposit.
+      let balance = await ERC20Token.balanceOf(await Bridge.getAddress());
+      expect(balance.toString()).to.equal(amount.toString());
+
+      // Prepare the withdrawal data and sign it.
+      const signHash = await Bridge.getERC20SignHash(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
+
+      const privateKey = Buffer.from(OWNER_PRIVATE_KEY, 'hex')
+      const signature = personalSign(
+        {privateKey: privateKey, data: signHash}
+      );
+
+      // Withdraw tokens from the Bridge contract to the deployer.
+      await Bridge.connect(await signers[0]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature]);
+
+      // Check the deployer's token balance after withdrawal.
+      balance = await ERC20Token.balanceOf(ownerAddress);
+      expect(balance.toString()).to.equal(amount.toString());
+    });
+
+    it("should revert when trying to deposit more tokens than the owner's balance", async function () {
+      // Attempt to deposit more tokens than the owner's balance.
+      await expect(Bridge.connect(signers[0]).depositERC20(ERC20Token.getAddress(), largeAmount, ownerAddress, network, isMintable)).to.be.reverted;
+    });
+
+    it("should revert when trying to withdraw more tokens than the Bridge contract's balance", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+
+      // Get the sign hash and sign it with the owner's private key.
+      const signHash = await Bridge.getERC20SignHash(await ERC20Token.getAddress(), largeAmount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(OWNER_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw more tokens than the Bridge contract's balance.
+      await expect(Bridge.connect(signers[0]).withdrawERC20(await ERC20Token.getAddress(), largeAmount, ownerAddress, tx.hash, txNonce, isMintable, [signature])).to.be.reverted;
+    });
+
+    it("should revert when trying to withdraw tokens with an invalid signature", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const invalidSignature = "0x" + "b".repeat(130);
+
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+
+      // Attempt to withdraw tokens with an invalid signature.
+      await expect(Bridge.connect(signers[0]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [invalidSignature])).to.be.reverted;
+    });
+
+    it("should revert when trying to deposit or withdraw tokens with signatures from non-signers account", async function () {
+      // Approve the Bridge contract to spend the non-signer's tokens.
+      await ERC20Token.connect(signers[1]).approve(Bridge.getAddress(), amount);
+
+      // Mint some tokens to the non-signer.
+      await ERC20Token.mint(await signers[1].getAddress(), amount);
+
+      // Attempt to deposit tokens from an address that is not a signer.
+      await Bridge.connect(signers[1]).depositERC20(ERC20Token.getAddress(), amount, signers[1].getAddress(), network, isMintable)
+
+      // Deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC20(ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+
+      // Prepare the withdrawal data and sign it with the second private key.
+      const signHash = await Bridge.getERC20SignHash(ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(SECOND_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw tokens from the Bridge contract with a signature from a non-signer.
+      await expect(
+        Bridge.connect(signers[1]).withdrawERC20(ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature])
+      ).to.be.reverted;
+    });
   });
 
-  it("should deposit and withdraw ERC20 tokens", async function () {
-    // Call the function with all required arguments to deposit tokens to the Bridge contract.
-    const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+  describe("ERC-721", function () {
+    let ERC721Token: Contract;
+    let uri;
 
-    // Check the Bridge contract's token balance after deposit.
-    let balance = await ERC20Token.balanceOf(await Bridge.getAddress());
-    expect(balance.toString()).to.equal(amount.toString());
+    beforeEach(async function () {
+      // Deploy the Bridge contract and the ERC721 token contract.
+      tokenId = 1;
+      network = "test-network-1";
+      txNonce = 0;
+      isMintable = false;
+      uri = "https://test-uri.com/";
 
-    // Prepare the withdrawal data and sign it.
-    const signHash = await Bridge.getERC20SignHash(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
+      // Get the signers from the network.
+      signers = await ethers.getSigners();
+      // Get the owner's address from the first signer.
+      ownerAddress = await signers[0].getAddress();
 
-    const privateKey = Buffer.from(OWNER_PRIVATE_KEY, 'hex')
-    const signature = personalSign(
-      {privateKey: privateKey, data: signHash}
-    );
+      // Deploy the Bridge contract and the ERC721 token contract.
+      const BridgeFactory = await ethers.getContractFactory("Bridge");
+      const bridgeImplementation = await BridgeFactory.deploy();
 
-    // Withdraw tokens from the Bridge contract to the deployer.
-    await Bridge.connect(await signers[0]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature]);
+      // Deploy the ERC1967Proxy contract and initialize it with the Bridge contract's address.
+      const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
+      const proxy = await ERC1967ProxyFactory.deploy(await bridgeImplementation.getAddress(), "0x");
 
-    // Check the deployer's token balance after withdrawal.
-    balance = await ERC20Token.balanceOf(ownerAddress);
-    expect(balance.toString()).to.equal(amount.toString());
-  });
+      // Attach the Bridge contract to the proxy.
+      Bridge = BridgeFactory.attach(await proxy.getAddress());
 
-  it("should revert when trying to deposit more tokens than the owner's balance", async function () {
-    // Attempt to deposit more tokens than the owner's balance.
-    await expect(Bridge.connect(signers[0]).depositERC20(ERC20Token.getAddress(), largeAmount, ownerAddress, network, isMintable)).to.be.reverted;
-  });
+      // Deploy the ERC721 token contract.
+      const ERC721TokenFactory = await ethers.getContractFactory("ERC721MintableBurnable");
+      ERC721Token = await ERC721TokenFactory.deploy(ownerAddress,"Test Token", "TST", uri);
 
-  it("should revert when trying to withdraw more tokens than the Bridge contract's balance", async function () {
-    // Call the function with all required arguments to deposit tokens to the Bridge contract.
-    const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+      // Initialize the Bridge contract with the owner's address and the second account's address.
+      await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], 1);
 
-    // Get the sign hash and sign it with the owner's private key.
-    const signHash = await Bridge.getERC20SignHash(await ERC20Token.getAddress(), largeAmount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
-    const signature = personalSign({ privateKey: Buffer.from(OWNER_PRIVATE_KEY, 'hex'), data: signHash });
+      // Mint some tokens to the owner.
+      await ERC721Token.safeMint(ownerAddress, tokenId, "https://token-cdn-domain/");
 
-    // Attempt to withdraw more tokens than the Bridge contract's balance.
-    await expect(Bridge.connect(signers[0]).withdrawERC20(await ERC20Token.getAddress(), largeAmount, ownerAddress, tx.hash, txNonce, isMintable, [signature])).to.be.reverted;
-  });
+      // Approve the Bridge contract to spend the owner's tokens
+      await ERC721Token.connect(signers[0]).approve(Bridge.getAddress(), tokenId);
 
-  it("should revert when trying to withdraw tokens with an invalid signature", async function () {
-    // Call the function with all required arguments to deposit tokens to the Bridge contract.
-    const invalidSignature = "0x" + "b".repeat(130);
+      // Approve the Bridge contract to spend the deployer's tokens
+      await ERC721Token.connect(await signers[0]).approve(await Bridge.getAddress(), tokenId);
+    });
 
-    // Call the function with all required arguments to deposit tokens to the Bridge contract.
-    const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+    it("should deposit and withdraw ERC721 tokens", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, network, isMintable);
 
-    // Attempt to withdraw tokens with an invalid signature.
-    await expect(Bridge.connect(signers[0]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [invalidSignature])).to.be.reverted;
-  });
+      // Check the Bridge contract's token balance after deposit.
+      let owner = await ERC721Token.ownerOf(tokenId);
+      expect(owner).to.equal(await Bridge.getAddress());
 
-  it("should revert when trying to deposit or withdraw tokens with signatures from non-signers account", async function () {
-    // Approve the Bridge contract to spend the non-signer's tokens.
-    await ERC20Token.connect(signers[1]).approve(Bridge.getAddress(), amount);
+      // Prepare the withdrawal data and sign it.
+      const signHash = await Bridge.getERC721SignHash(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, tx.chainId, uri, isMintable);
 
-    // Mint some tokens to the non-signer.
-    await ERC20Token.mint(await signers[1].getAddress(), amount);
+      const privateKey = Buffer.from(OWNER_PRIVATE_KEY, 'hex')
+      const signature = personalSign(
+        {privateKey: privateKey, data: signHash}
+      );
 
-    // Attempt to deposit tokens from an address that is not a signer.
-    await Bridge.connect(signers[1]).depositERC20(ERC20Token.getAddress(), amount, signers[1].getAddress(), network, isMintable);
+      // Withdraw tokens from the Bridge contract to the deployer.
+      await Bridge.connect(await signers[0]).withdrawERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, uri, isMintable, [signature]);
 
-    // Deposit tokens to the Bridge contract.
-    const tx = await Bridge.connect(signers[0]).depositERC20(ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+      // Check the deployer's token balance after withdrawal.
+      owner = await ERC721Token.ownerOf(tokenId);
+      expect(owner).to.equal(ownerAddress);
+    });
 
-    // Prepare the withdrawal data and sign it with the second private key.
-    const signHash = await Bridge.getERC20SignHash(ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
-    const signature = personalSign({ privateKey: Buffer.from(SECOND_PRIVATE_KEY, 'hex'), data: signHash });
+    it("should revert when trying to deposit a non-existent token", async function () {
+      // Attempt to deposit a non-existent token.
+      await expect(Bridge.connect(signers[0]).depositERC721(ERC721Token.getAddress(), 9999, ownerAddress, network, isMintable)).to.be.reverted;
+    });
 
-    // Attempt to withdraw tokens from the Bridge contract with a signature from a non-signer.
-    await expect(
-      Bridge.connect(signers[1]).withdrawERC20(ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature])
-    ).to.be.reverted;
+    it("should revert when trying to withdraw a non-existent token", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, network, isMintable);
+
+      // Get the sign hash and sign it with the owner's private key.
+      const signHash = await Bridge.getERC721SignHash(await ERC721Token.getAddress(), 9999, ownerAddress, tx.hash, txNonce, tx.chainId, uri, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(OWNER_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw a non-existent token.
+      await expect(Bridge.connect(signers[0]).withdrawERC721(await ERC721Token.getAddress(), 9999, ownerAddress, tx.hash, txNonce, uri, isMintable, [signature])).to.be.reverted;
+    });
+
+    it("should revert when trying to withdraw tokens with an invalid signature", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const invalidSignature = "0x" + "b".repeat(130);
+
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, network, isMintable);
+
+      // Attempt to withdraw tokens with an invalid signature.
+      await expect(Bridge.connect(signers[0]).withdrawERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, uri, isMintable, [invalidSignature])).to.be.reverted;
+    });
+
+    it("should revert when trying to deposit or withdraw tokens with signatures from non-signers account", async function () {
+      // Mint some tokens to the non-signer account.
+      const nonSignerTokenId = 2;
+
+      // Mint some tokens to the non-signer.
+      await ERC721Token.safeMint(await signers[1].getAddress(), nonSignerTokenId, uri);
+
+      // Approve the Bridge contract to spend the non-signer's tokens
+      await ERC721Token.connect(signers[1]).approve(Bridge.getAddress(), nonSignerTokenId);
+
+      // Attempt to deposit tokens from an address that is not a signer.
+      await Bridge.connect(signers[1]).depositERC721(ERC721Token.getAddress(), nonSignerTokenId, signers[1].getAddress(), network, isMintable);
+
+      // Deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositERC721(ERC721Token.getAddress(), tokenId, ownerAddress, network, isMintable);
+
+      // Prepare the withdrawal data and sign it with the second private key.
+      const signHash = await Bridge.getERC721SignHash(ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, tx.chainId, uri, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(SECOND_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw tokens from the Bridge contract with a signature from a non-signer.
+      await expect(
+        Bridge.connect(signers[1]).withdrawERC721(ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, uri, isMintable, [signature])
+      ).to.be.reverted;
+    });
   });
 });
