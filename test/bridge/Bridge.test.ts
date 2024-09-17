@@ -182,6 +182,21 @@ describe("Bridge", function () {
       await expect(Bridge.connect(signers[1]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature])).to.be.reverted;
     });
 
+    it("should revert if signers are not enough to withdraw", async function () {
+      // Update the threshold signatures to 2.
+      const tx = await Bridge.connect(signers[0]).updateThresholdSignatures(2);
+
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
+
+      // Prepare the withdrawal data and sign it with the owner's private key.
+      const signHash = await Bridge.getERC20SignHash(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, tx.chainId, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(OWNER_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw tokens from the Bridge contract with only one signature.
+      await expect(Bridge.connect(signers[0]).withdrawERC20(await ERC20Token.getAddress(), amount, ownerAddress, tx.hash, txNonce, isMintable, [signature])).to.be.reverted;
+    });
+
     it("should sign and withdraw with a signature if the threshold is 1 and signer is not owner", async function () {
       // Call the function with all required arguments to deposit tokens to the Bridge contract.
       const tx = await Bridge.connect(signers[0]).depositERC20(await ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
@@ -342,6 +357,21 @@ describe("Bridge", function () {
 
       // Attempt to withdraw tokens from the Bridge contract with a signature from a non-signer.
       await expect(Bridge.connect(signers[1]).withdrawERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, uri, isMintable, [signature])).to.be.reverted;
+    });
+
+    it("should revert if signers are not enough to withdraw", async function () {
+      // Update the threshold signatures to 2.
+      const tx = await Bridge.connect(signers[0]).updateThresholdSignatures(2);
+
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      await Bridge.connect(signers[0]).depositERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, network, isMintable);
+
+      // Prepare the withdrawal data and sign it with the owner's private key.
+      const signHash = await Bridge.getERC721SignHash(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, tx.chainId, uri, isMintable);
+      const signature = personalSign({ privateKey: Buffer.from(OWNER_PRIVATE_KEY, 'hex'), data: signHash });
+
+      // Attempt to withdraw tokens from the Bridge contract with only one signature.
+      await expect(Bridge.connect(signers[0]).withdrawERC721(await ERC721Token.getAddress(), tokenId, ownerAddress, tx.hash, txNonce, uri, isMintable, [signature])).to.be.reverted;
     });
 
     it("should sign and withdraw with a signature if the threshold is 1 and signer is not owner", async function () {
