@@ -20,31 +20,38 @@ describe("Bridge", function () {
   let signers: Signer[];
 
   beforeEach(async function () {
+    // Deploy the Bridge contract and the ERC20 token contract.
     amount = wei("1000000");
     largeAmount = wei("1000000000");
     network = "test-network-1";
     txNonce = 0;
     isMintable = false;
 
+    // Get the signers from the network.
     signers = await ethers.getSigners();
+    // Get the owner's address from the first signer.
     ownerAddress = await signers[0].getAddress();
 
+    // Deploy the Bridge contract and the ERC20 token contract.
     const BridgeFactory = await ethers.getContractFactory("Bridge");
     const bridgeImplementation = await BridgeFactory.deploy();
 
+    // Deploy the ERC1967Proxy contract and initialize it with the Bridge contract's address.
     const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
     const proxy = await ERC1967ProxyFactory.deploy(await bridgeImplementation.getAddress(), "0x");
 
+    // Attach the Bridge contract to the proxy.
     Bridge = BridgeFactory.attach(await proxy.getAddress());
 
+    // Deploy the ERC20 token contract.
     const ERC20TokenFactory = await ethers.getContractFactory("ERC20MintableBurnable");
     ERC20Token = await ERC20TokenFactory.deploy(signers[0].getAddress(), "Test Token", "TST");
 
-    await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], 1); // Assuming 1 as the threshold for testing
+    // Initialize the Bridge contract with the owner's address and the second account's address.
+    await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], 1);
 
-    // Mint some tokens to the deployer
+    // Mint some tokens to the owner.
     await ERC20Token.mint(ownerAddress, amount);
-
 
     // Approve the Bridge contract to spend the owner's tokens
     await ERC20Token.connect(signers[0]).approve(Bridge.getAddress(), amount);
@@ -113,7 +120,7 @@ describe("Bridge", function () {
     await ERC20Token.mint(await signers[1].getAddress(), amount);
 
     // Attempt to deposit tokens from an address that is not a signer.
-    await Bridge.connect(signers[1]).depositERC20(ERC20Token.getAddress(), amount, signers[1].getAddress(), network, isMintable)
+    await Bridge.connect(signers[1]).depositERC20(ERC20Token.getAddress(), amount, signers[1].getAddress(), network, isMintable);
 
     // Deposit tokens to the Bridge contract.
     const tx = await Bridge.connect(signers[0]).depositERC20(ERC20Token.getAddress(), amount, ownerAddress, network, isMintable);
