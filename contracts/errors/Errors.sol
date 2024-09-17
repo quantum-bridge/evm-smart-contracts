@@ -19,3 +19,4 @@ error SignersExist();
 error ThresholdLessThanSignatures();
 error InvalidThresholdSignatures();
 error SignersAddressCannotBeZero();
+error ThresholdGreaterThanSigners();

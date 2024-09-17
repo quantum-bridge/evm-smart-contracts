@@ -198,6 +198,7 @@ contract Bridge is
 
     function updateThresholdSignatures(uint256 thresholdSignerSignatures_) public onlyOwner {
         if (thresholdSignerSignatures_ == 0) revert InvalidThresholdSignatures();
+        if (thresholdSignerSignatures_ > signersAddresses.length()) revert ThresholdGreaterThanSigners();
 
         thresholdSignerSignatures = thresholdSignerSignatures_;
     }
