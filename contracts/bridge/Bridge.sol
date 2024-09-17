@@ -206,6 +206,7 @@ contract Bridge is
     function addSigners(address[] calldata signers_) public onlyOwner {
         for (uint256 i = 0; i < signers_.length; i++) {
             if (signers_[i] == address(0)) revert SignersAddressCannotBeZero();
+            if (signersAddresses.contains(signers_[i])) revert SignersExist();
 
             signersAddresses.add(signers_[i]);
         }
