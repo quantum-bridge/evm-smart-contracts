@@ -5,11 +5,12 @@ import {wei} from "@scripts";
 import {personalSign} from "@metamask/eth-sig-util";
 
 describe("Bridge", function () {
-  // Private keys for the owner and the second account (second account is not a signer).
+  // Private keys for the owner, second account, and non-signer account.
   const OWNER_PRIVATE_KEY = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
   const SECOND_PRIVATE_KEY = "59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
   const NONSIGNER_PRIVATE_KEY = "f214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897"
-  const secondAccount = "0xBcd4042DE499D14e55001CcbB24a551F3b954096"
+
+  // Variables for the owner's address, token ID, network, mintable flag, transaction nonce, and threshold signatures.
   let ownerAddress: string;
   let tokenId;
   let network;
@@ -17,11 +18,12 @@ describe("Bridge", function () {
   let txNonce;
   let thresholdSignatures;
 
-  // Contracts and signers.
+  // Contracts and signers for the tests.
   let Bridge: BaseContract & Omit<BaseContract, keyof BaseContract>;
   let signers: Signer[];
 
   beforeEach(async function () {
+    // Set the initial values for the variables.
     network = "test-network-1";
     txNonce = 0;
     isMintable = false;

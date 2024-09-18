@@ -4,8 +4,8 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const OWNER = process.env.BRIDGE_OWNER;
-const validators = (process.env.BRIDGE_VALIDATORS as string).split(",");
-const threshold = parseInt(process.env.BRIDGE_THRESHOLD as string, 10);
+const validators = (process.env.BRIDGE_SIGNERS as string).split(",");
+const threshold = parseInt(process.env.BRIDGE_SIGNERS_THRESHOLD as string, 10);
 
 export = async (deployer: Deployer) => {
   const [deployerSigner] = await ethers.getSigners(); // Get the signer
