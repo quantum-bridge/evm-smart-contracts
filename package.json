@@ -32,6 +32,8 @@
     "upgrade-bsc": "npx hardhat migrate --network bsc --verify --from 2 --to 2",
     "deploy-polygon": "npx hardhat migrate --network polygon --verify --from 1 --to 1",
     "upgrade-polygon": "npx hardhat migrate --network polygon --verify --from 2 --to 2",
+    "deploy-amoy": "npx hardhat migrate --network polygonAmoy --verify --from 1 --to 1",
+    "upgrade-amoy": "npx hardhat migrate --network polygonAmoy --verify --from 2 --to 2",
     "deploy-avalanche": "npx hardhat migrate --network avalanche --verify --from 1 --to 1",
     "upgrade-avalanche": "npx hardhat migrate --network avalanche --verify --from 2 --to 2",
     "generate-types": "TYPECHAIN_FORCE=true npx hardhat typechain && npx hardhat gobind",

@@ -66,7 +66,12 @@ const config: HardhatUserConfig = {
       gasMultiplier: 1.2,
     },
     polygon: {
-      url: `https://matic-mainnet.chainstacklabs.com`,
+      url: `https://polygon.llamarpc.com`,
+      accounts: privateKey(),
+      gasMultiplier: 1.2,
+    },
+    polygonAmoy: {
+      url: `https://rpc.ankr.com/polygon_amoy`,
       accounts: privateKey(),
       gasMultiplier: 1.2,
     },
@@ -94,7 +99,8 @@ const config: HardhatUserConfig = {
       mainnet: `${process.env.ETHERSCAN_KEY}`,
       bscTestnet: `${process.env.BSCSCAN_KEY}`,
       bsc: `${process.env.BSCSCAN_KEY}`,
-      polygon: `${process.env.POLYGONSCAN_KEY}`,
+      polygonAmoy: `${process.env.POLYGONSCAN_KEY}`,
+      amoy: `${process.env.POLYGONSCAN_KEY}`,
       avalancheFujiTestnet: `${process.env.AVALANCHE_KEY}`,
       avalanche: `${process.env.AVALANCHE_KEY}`,
     },
