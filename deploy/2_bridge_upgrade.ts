@@ -7,16 +7,15 @@ const proxyAddress = process.env.PROXY_ADDRESS;
 
 export = async (deployer: Deployer) => {
   try {
-    const [deployerSigner] = await ethers.getSigners(); // Отримати підписувача
+    const [deployerSigner] = await ethers.getSigners();
 
     const BridgeArtifact = await artifacts.readArtifact("Bridge");
-    const Bridge = new ethers.ContractFactory(BridgeArtifact.abi, BridgeArtifact.bytecode, deployerSigner); // Використовуємо підписувача
+    const Bridge = new ethers.ContractFactory(BridgeArtifact.abi, BridgeArtifact.bytecode, deployerSigner);
 
-    const newBridgeImplementation = await deployer.deploy(Bridge); // Деплой нового контракту Bridge
+    const newBridgeImplementation = await deployer.deploy(Bridge);
     const newBridgeAddress = await newBridgeImplementation.getAddress();
 
-    // Підключаємося до існуючого проксі Bridge через адресу
-    const bridgeProxy = new ethers.Contract(proxyAddress, BridgeArtifact.abi, deployerSigner); // Використовуємо підписувача
+    const bridgeProxy = new ethers.Contract(proxyAddress, BridgeArtifact.abi, deployerSigner);
 
     const data = "0x";
 

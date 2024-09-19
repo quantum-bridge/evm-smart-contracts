@@ -15,6 +15,8 @@ abstract contract NativeHandler is INativeHandler {
         emit DepositedNative(network_, to_, msg.value);
     }
 
+    receive() external payable {}
+
     function _withdrawNative(
         address to_,
         uint256 amount_

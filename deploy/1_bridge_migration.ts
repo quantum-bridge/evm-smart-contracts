@@ -13,7 +13,12 @@ export = async (deployer: Deployer) => {
   const BridgeArtifact = await artifacts.readArtifact("Bridge");
   const ERC1967ProxyArtifact = await artifacts.readArtifact("ERC1967Proxy");
 
-  const Bridge = new ethers.ContractFactory(BridgeArtifact.abi, BridgeArtifact.bytecode, deployerSigner); // Use signer
+  const Bridge = new ethers.ContractFactory(
+    BridgeArtifact.abi,
+    BridgeArtifact.bytecode,
+    deployerSigner
+  );
+
   const ERC1967Proxy = new ethers.ContractFactory(
     ERC1967ProxyArtifact.abi,
     ERC1967ProxyArtifact.bytecode,
