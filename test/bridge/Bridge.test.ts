@@ -36,6 +36,48 @@ describe("Bridge", function () {
     thresholdSignatures = 1;
   });
 
+  describe("Native currency", function () {
+    let amount;
+
+    beforeEach(async function () {
+      amount = wei("100");
+
+      // Deploy the Bridge contract.
+      const BridgeFactory = await ethers.getContractFactory("Bridge");
+      const bridgeImplementation = await BridgeFactory.deploy();
+
+      // Deploy the ERC1967Proxy contract and initialize it with the Bridge contract's address.
+      const ERC1967ProxyFactory = await ethers.getContractFactory("ERC1967Proxy");
+      const proxy = await ERC1967ProxyFactory.deploy(await bridgeImplementation.getAddress(), "0x");
+
+      // Attach the Bridge contract to the proxy.
+      Bridge = BridgeFactory.attach(await proxy.getAddress());
+
+      // Initialize the Bridge contract with the owner's address and the second account's address.
+      await Bridge.initialize(ownerAddress, [ownerAddress, await signers[1].getAddress()], thresholdSignatures);
+    });
+
+    it("should deposit and withdraw native tokens", async function () {
+      // Call the function with all required arguments to deposit tokens to the Bridge contract.
+      const tx = await Bridge.connect(signers[0]).depositNative(network, ownerAddress, {value: amount});
+
+      // Check the Bridge contract's token balance after deposit.
+      let balance = await ethers.provider.getBalance(await Bridge.getAddress());
+      expect(balance.toString()).to.equal(amount.toString());
+
+      // Prepare the withdrawal data and sign it.
+      const signHash = await Bridge.getNativeSignHash(amount, ownerAddress, tx.hash, txNonce, tx.chainId);
+
+      const privateKey = Buffer.from(OWNER_PRIVATE_KEY, 'hex');
+      const signature = personalSign(
+        {privateKey: privateKey, data: signHash}
+      );
+
+      // Withdraw tokens from the Bridge contract to the deployer.
+      await Bridge.connect(await signers[0]).withdrawNative(amount, ownerAddress, tx.hash, txNonce, [signature]);
+    });
+  });
+
   describe("ERC-20", function () {
     // ERC20 token contract and the amount of tokens to deposit.
     let ERC20Token: Contract;
