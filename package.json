@@ -45,7 +45,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "5.0.2",
     "@openzeppelin/contracts-upgradeable": "5.0.2",
-    "@solarity/solidity-lib": "2.7.10"
+    "@solarity/solidity-lib": "2.7.11"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.7",
